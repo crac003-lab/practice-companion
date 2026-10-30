@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>乐谱陪练伴侣 v0.2 · 风格自适应</title>
+<script src="https://cdn.jsdelivr.net/npm/abcjs@6.3.0/dist/abcjs-basic-min.js"></script>
+<style>
+:root{--bg:#faf8f5;--panel:#fff;--ink:#1c1a17;--ink2:#57534e;--ink3:#8a837a;--line:#e7e2da;--accent:#b45309;--accent-soft:#fdf3e7;--ok:#15803d;--warn:#a16207;--blue:#1d4ed8;--blue-soft:#eef2ff}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.65}
+.wrap{max-width:900px;margin:0 auto;padding:24px 16px 80px}
+header{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:16px}
+.kicker{font-size:11px;letter-spacing:.16em;color:var(--accent);font-weight:700;text-transform:uppercase}
+h1{font-size:23px;margin:6px 0 4px}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.chip{font-size:11.5px;padding:3px 9px;border-radius:999px;background:var(--panel);border:1px solid var(--line);color:var(--ink2)}
+.streak{margin-left:auto;font-size:13px;color:var(--accent);font-weight:700}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:16px;margin:14px 0}
+.card h2{font-size:14px;font-weight:650;margin-bottom:10px;color:var(--ink)}
+.card h2 .tag{font-size:11px;font-weight:600;color:var(--accent);margin-left:8px}
+.hint{font-size:12px;color:var(--ink3);margin-bottom:10px}
+.drop{border:2px dashed var(--line);border-radius:11px;padding:20px;text-align:center;color:var(--ink3);cursor:pointer}
+#scoreImg{max-width:100%;border-radius:9px;margin-top:10px;display:none}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+button{font:inherit;font-size:13px;padding:8px 13px;border:1px solid var(--line);border-radius:8px;background:#fdfcfb;cursor:pointer}
+button:hover{background:var(--accent-soft);border-color:var(--accent)}
+button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+textarea{width:100%;min-height:80px;font:inherit;font-size:13px;padding:10px;border:1px solid var(--line);border-radius:9px;background:#fdfcfb;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace}
+input[type=text]{font:inherit;font-size:13px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:#fdfcfb}
+input[type=range]{accent-color:var(--accent)}
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:10px 0}
+#audio-controls{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+#audio-controls button{font:inherit;font-size:12px;padding:4px 8px;border:1px solid var(--line);border-radius:7px;background:#fdfcfb;cursor:pointer}
+.paper-card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:12px;overflow-x:auto;margin-top:8px}
+
+/* 分析卡 */
+.readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:12px}
+.feat{background:#fdfcfb;border:1px solid var(--line);border-radius:9px;padding:10px}
+.feat .k{font-size:11px;color:var(--ink3)}
+.feat .v{font-size:16px;font-weight:700;margin-top:2px}
+.diff{display:inline-block;font-size:12px;font-weight:700;padding:2px 9px;border-radius:6px}
+.diff.easy{background:#eef7f0;color:var(--ok)} .diff.mid{background:var(--warn-soft,#fdf6e3);color:var(--warn)} .diff.hard{background:#fdeaea;color:#b91c1c}
+.drills{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media(max-width:640px){.drills{grid-template-columns:1fr}}
+.drill{background:var(--blue-soft);border:1px solid #dbe3ff;border-radius:10px;padding:12px}
+.drill .h{font-size:12.5px;font-weight:700;color:var(--blue);margin-bottom:4px}
+.drill .b{font-size:13px;color:var(--ink2)}
+
+/* 掌握里程碑 */
+.mastery{margin-top:8px}
+.ms{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed var(--line);cursor:pointer;font-size:13.5px;color:var(--ink2)}
+.ms:last-child{border-bottom:0}
+.ms .box{flex:0 0 18px;height:18px;border:1.5px solid #cfc7bb;border-radius:5px;display:grid;place-items:center;font-size:11px;color:#fff}
+.ms.done .box{background:var(--ok);border-color:var(--ok)}
+.ms.done span{color:var(--ink3);text-decoration:line-through}
+.mbar{flex:1;height:6px;background:var(--line);border-radius:99px;overflow:hidden;margin-top:10px}
+.mbar i{display:block;height:100%;background:var(--accent);transition:width .3s}
+
+/* 陪练 */
+.coach{background:var(--accent-soft);border:1px solid #f0d9b8;border-radius:11px;padding:14px;margin-top:8px}
+.coach .ask{font-size:14px;font-weight:600;margin-bottom:10px}
+.coach .msg{font-size:13.5px;color:var(--ink);margin-top:10px;padding:10px;background:#fff;border-radius:8px;border:1px solid #f0d9b8;display:none}
+.coach .msg.show{display:block}
+footer{margin-top:30px;font-size:11.5px;color:var(--ink3);border-top:1px solid var(--line);padding-top:14px}
+
+/* abcjs audio css (内联) */
+.abcjs-inline-audio{height:26px;padding:0 5px;border-radius:3px;background-color:#424242;display:flex;align-items:center;box-sizing:border-box}
+.abcjs-inline-audio.abcjs-disabled{opacity:.5}
+.abcjs-inline-audio .abcjs-btn{display:block;width:28px;height:34px;margin-right:2px;padding:7px 4px;background:none!important;border:1px solid transparent;box-sizing:border-box;line-height:1}
+.abcjs-btn g{fill:#f4f4f4;stroke:#f4f4f4}
+.abcjs-inline-audio .abcjs-btn:hover g{fill:#ccc;stroke:#ccc}
+.abcjs-inline-audio .abcjs-midi-selection.abcjs-pushed,.abcjs-inline-audio .abcjs-midi-loop.abcjs-pushed,.abcjs-inline-audio .abcjs-midi-reset.abcjs-pushed{border:1px solid #ccc;background-color:#666}
+.abcjs-inline-audio .abcjs-midi-start .abcjs-pause-svg{display:none}
+.abcjs-inline-audio .abcjs-midi-start.abcjs-pushed .abcjs-play-svg{display:none}
+.abcjs-inline-audio .abcjs-midi-start.abcjs-pushed .abcjs-pause-svg{display:block}
+.abcjs-inline-audio .abcjs-midi-progress-background{background-color:#424242;height:10px;border-radius:5px;border:2px solid #ccc;margin:0 8px 0 15px;position:relative;flex:1;padding:0;box-sizing:border-box}
+.abcjs-inline-audio .abcjs-midi-progress-indicator{width:20px;margin-left:-10px;height:14px;background-color:#f4f4f4;position:absolute;display:inline-block;border-radius:6px;top:-4px;left:0}
+.abcjs-inline-audio .abcjs-midi-clock{margin-left:4px;margin-top:1px;margin-right:2px;display:inline-block;font-family:sans-serif;font-size:16px;color:#f4f4f4}
+.abcjs-inline-audio .abcjs-tempo-wrapper{font-size:10px;color:#f4f4f4;display:flex;align-items:center}
+.abcjs-inline-audio .abcjs-midi-tempo{border-radius:2px;border:none;margin:0 2px 0 4px;width:42px;padding-left:2px}
+.abcjs-css-warning{display:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="kicker">乐谱陪练伴侣 v0.2 · 风格自适应</div>
+    <h1>拍照即练 · 越练越懂这首</h1>
+    <div class="meta">
+      <span class="chip">单文件 · 本地可用</span>
+      <span class="chip">分析来自乐谱 ABC，非照片直读</span>
+      <span class="streak" id="streak">🔥 连续 0 天</span>
+    </div>
+  </header>
+
+  <div class="card">
+    <h2>① 把乐谱截图丢进来</h2>
+    <div class="hint">点击 / 拖拽 / Ctrl+V 粘贴。图只在本机显示。试听请把同一张图发到聊天，我转成 ABC 发你粘进来。</div>
+    <div class="drop" id="drop">点击选择，或把截图拖到这里，或 Ctrl+V 粘贴</div>
+    <input type="file" id="file" accept="image/*" hidden>
+    <img id="scoreImg" alt="乐谱">
+  </div>
+
+  <div class="card">
+    <h2>② 粘贴乐谱 ABC</h2>
+    <div class="hint">没有 ABC？把截图发我，我转好发你。标 [待核实] 的音高先别练。</div>
+    <textarea id="abc" placeholder="X:1&#10;T:曲名&#10;M:4/4&#10;L:1/4&#10;Q:1/4=100&#10;K:C&#10;C C G G | A A G2 | ..."></textarea>
+    <div class="row">
+      <button class="primary" id="load">载入示例乐谱</button>
+      <button id="render">分析并渲染</button>
+    </div>
+  </div>
+
+  <div class="card" id="playerCard" style="display:none">
+    <h2>③ 练习播放器</h2>
+    <div class="controls">
+      <button id="slow">慢练 (60%)</button>
+      <button id="normal">原速</button>
+      <button id="midi">⬇ 下载 MIDI</button>
+      <label style="font-size:12.5px;color:var(--ink2);display:flex;align-items:center;gap:8px">调速
+        <input type="range" id="bpm" min="40" max="160" value="100" style="width:120px"><span id="bpmval">100</span> BPM</label>
+    </div>
+    <div id="audio-controls"></div>
+    <div class="paper-card"><div id="paper"></div></div>
+  </div>
+
+  <div class="card" id="analyzeCard" style="display:none">
+    <h2>④ 智能分析 <span class="tag">基于乐谱风格自动生成</span></h2>
+    <div class="hint">难度与风格从 ABC 解析得来——这就是「识别节拍/节奏型」在网页里的落地方式（照片本身不含这些信息，转录后的 ABC 才有）。</div>
+    <div class="readout" id="readout"></div>
+    <div class="drills" id="drills"></div>
+  </div>
+
+  <div class="card" id="masteryCard" style="display:none">
+    <h2>⑤ 掌握里程碑 <span class="tag">取代"打卡"</span></h2>
+    <div class="hint">不是"今天来了吗"，而是"这首我会到哪一步"。三步全亮 = 这首真正练熟。</div>
+    <div id="masteryList"></div>
+    <div class="mbar"><i id="mbar"></i></div>
+  </div>
+
+  <div class="card">
+    <h2>⑥ 每日陪练</h2>
+    <div class="coach">
+      <div class="ask">今天练了吗？</div>
+      <div class="row">
+        <button id="did">练了</button><button id="not">没练</button><button id="stuck">卡住</button>
+      </div>
+      <div class="msg" id="msgDid">有进步。下一步给一个小增量：把最难那段速度提 5–10 BPM，或循环次数降一档。因为慢练没达标就提速，只会把错误练熟。</div>
+      <div class="msg" id="msgNot">不骂你。今天只做：最难 1 小节，慢练 3 遍，每遍 30 秒。做完就关。启动成本越低，越容易回来。</div>
+      <div class="msg" id="msgStuck">先分「没懂」还是「没练」：能哼出来但手跟不上＝没练，回去慢练；哼不出来＝没懂，先问一句具体问题。</div>
+    </div>
+  </div>
+
+  <footer>本页由「乐谱陪练教练」技能支撑。分析基于 AI 转录得到的 ABC，非照片直读。试听为合成音频，非录音；[待核实] 音高以原谱为准。</footer>
+</div>
+
+<script type="text/plain" id="seed">X:1
+T:小星星 (Twinkle Twinkle)
+M:4/4
+L:1/4
+Q:1/4=100
+K:C
+"C"C "C"C "G"G "G"G | "A"A "A"A "G"G2 | "F"F "F"F "E"E "E"E | "D"D "D"D "C"C2 |
+"G"G "G"G "F"F "F"F | "E"E "E"E "D"D2 | "G"G "G"G "F"F "F"F | "E"E "E"E "D"D2 |
+"C"C "C"C "G"G "G"G | "A"A "A"A "G"G2 | "F"F "F"F "E"E "E"E | "D"D "D"D "C"C2 |</script>
+
+<script>
+const SOUNDFONT="https://paulrosen.github.io/midi-js-soundfonts/FluidR3_GM/";
+let baseBpm=100, synth=null, visual=null;
+
+/* ① 上传 */
+const drop=document.getElementById("drop"),file=document.getElementById("file"),img=document.getElementById("scoreImg");
+drop.onclick=()=>file.click(); file.onchange=e=>showImg(e.target.files[0]);
+drop.ondragover=e=>{e.preventDefault();drop.classList.add("over")};
+drop.ondragleave=()=>drop.classList.remove("over");
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove("over");showImg(e.dataTransfer.files[0])};
+document.addEventListener("paste",e=>{const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith("image/"));if(it)showImg(it.getAsFile())});
+function showImg(f){if(!f)return;const r=new FileReader();r.onload=ev=>{img.src=ev.target.result;img.style.display="block"};r.readAsDataURL(f)}
+
+/* ②/③ 渲染 + 分析 */
+const abcBox=document.getElementById("abc");
+document.getElementById("load").onclick=()=>{abcBox.value=document.getElementById("seed").textContent.trim();doAll()};
+document.getElementById("render").onclick=doAll;
+
+function tempoLine(b){return "Q:1/4="+b}
+function withTempo(abc,b){return abc.replace(/Q:.*/m,tempoLine(b))}
+function doAll(){
+  const abc=abcBox.value.trim();
+  if(!abc){alert("先粘贴 ABC，或点「载入示例乐谱」");return}
+  const a=withTempo(abc,baseBpm);
+  visual=ABCJS.renderAbc("paper",a,{responsive:"resize",add_classes:true})[0];
+  document.getElementById("playerCard").style.display="block";
+  if(synth)synth.setTune(visual,false,{soundFontUrl:SOUNDFONT,midiOutputType:"binary"}).catch(e=>console.warn("音频不可用",e));
+  runAnalysis(abc);
+}
+function initSynth(){
+  synth=new ABCJS.synth.SynthController();
+  synth.load("#audio-controls",null,{displayLoop:true,displayRestart:true,displayPlay:true,displayProgress:true,displayWarp:true});
+  if(visual)synth.setTune(visual,false,{soundFontUrl:SOUNDFONT,midiOutputType:"binary"}).catch(e=>console.warn("音频不可用",e));
+}
+document.getElementById("bpm").addEventListener("input",e=>{baseBpm=+e.target.value;document.getElementById("bpmval").textContent=baseBpm;if(abcBox.value.trim())doRenderOnly()});
+document.getElementById("slow").onclick=()=>{baseBpm=Math.round(+abcBox.value.match(/Q:1\/4=\s*(\d+)/)[1]*0.6);sync()};
+document.getElementById("normal").onclick=()=>{baseBpm=+abcBox.value.match(/Q:1\/4=\s*(\d+)/)[1];sync()};
+function sync(){document.getElementById("bpm").value=baseBpm;document.getElementById("bpmval").textContent=baseBpm;doRenderOnly()}
+function doRenderOnly(){if(abcBox.value.trim()){const a=withTempo(abcBox.value.trim(),baseBpm);visual=ABCJS.renderAbc("paper",a,{responsive:"resize",add_classes:true})[0];if(synth)synth.setTune(visual,false,{soundFontUrl:SOUNDFONT,midiOutputType:"binary"}).catch(e=>{})}}
+document.getElementById("midi").onclick=()=>{const b64=ABCJS.synth.getMidiFile(abcBox.value.trim(),{chordsOff:true});const bin=atob(b64),arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);const url=URL.createObjectURL(new Blob([arr],{type:"audio/midi"}));const a=document.createElement("a");a.href=url;a.download="乐段.mid";a.click();URL.revokeObjectURL(url)};
+
+/* ④ 智能分析：解析 ABC → 风格/节拍/节奏/难度 + 自适应 drill */
+function runAnalysis(abc){
+  try{
+    const head={};
+    abc.split(/\n/).forEach(l=>{const m=l.match(/^([A-Za-z]):(.*)$/);if(m&&!l.startsWith("w:"))head[m[1]]=m[2].trim()});
+    const meter=(head.M||"4/4").split("/").map(Number);
+    const beats=meter[0], unitBeats=4/(meter[1]||4);
+    const bpm=head.Q?parseInt(head.Q.replace(/.*=/,"")):100;
+    const key=head.K||"C"; const title=head.T||"这首";
+    let body=abc.split(/\n/).filter(l=>!/^[A-Za-z]:/.test(l)&&!l.startsWith("w:")).join("\n");
+    body=body.replace(/!.*?!/g,"").replace(/"[^"]*"/g,"").replace(/w:.*/g,"").replace(/%.*/g,"").replace(/\[[0-9,]*\]/g,"").replace(/\([0-9]/g,"");
+    const bars=body.split("|").map(b=>b.trim()).filter(b=>b.length);
+    const LETTERS="CDEFGAB";
+    let notesCount=0,rests=0,totalBeats=0,maxLeap=0,minP=999,maxP=-999,prevP=null,densest={i:0,den:0},shortest=99;
+    const pitchOf=(c,oct,acc)=>12*(oct+1)+({C:0,D:2,E:4,F:5,G:7,A:9,B:11})[c]+acc;
+    bars.forEach((bar,i)=>{
+      let bbeats=0; const toks=bar.match(/[\[_^=]?[A-Ga-gz][,']*[_^=]*\d*\/*\d*|\[[^\]]*\]/g)||[];
+      toks.forEach(tk=>{
+        if(tk.startsWith("[")){
+          const inner=tk.slice(1,-1).match(/[A-Ga-g]/g)||[];
+          inner.forEach(c=>{const oct=c<c.toLowerCase()?4:3;const p=pitchOf(c.toUpperCase(),oct,0);minP=Math.min(minP,p);maxP=Math.max(maxP,p)});
+          bbeats+=unitBeats; return;
+        }
+        if(tk==="z"||tk.startsWith("z")){rests++;let d=unitBeats;const m=tk.match(/z(\d*)\/*(\d*)/);if(m){d=unitBeats*(m[1]?+m[1]:1)/(m[2]?+m[2]:1)}totalBeats+=d;return;}
+        const c=tk.match(/[A-Ga-g]/)[0];
+        const oct=c===c.toUpperCase()?3:4+ (tk.split("'").length-1) - (tk.split(",").length-1)*0;
+        let acc=0;for(const ch of tk)if(ch==="_")acc++;else if(ch==="^")acc--;
+        const p=pitchOf(c.toUpperCase(),oct,acc);
+        if(prevP!==null)maxLeap=Math.max(maxLeap,Math.abs(p-prevP));
+        prevP=p;minP=Math.min(minP,p);maxP=Math.max(maxP,p);
+        let mult=1;const dm=tk.match(/(\d+)\/*(\d*)/);let div=1;if(dm){mult=dm[1]?+dm[1]:1;div=dm[2]?+dm[2]:1}
+        const d=unitBeats*mult/div; totalBeats+=d; notesCount++;
+        if(d<shortest)shortest=d;
+        const den=d/(beats*unitBeats);
+        if(den>densest.den){densest={i:i+1,den:den}}
+      });
+      function bbets(){}
+    });
+    const occupancy=totalBeats/(bars.length*beats*unitBeats);
+    const range=maxP-minP;
+    const leapN=Math.min(maxLeap/12,1);
+    const diff=Math.min(1,(occupancy*0.35)+(leapN*0.3)+((bpm-60)/120*0.2)+(range/36*0.15));
+    const level=diff<0.4?"easy":diff<0.7?"mid":"hard";
+    const lvText={easy:"易",mid:"中",hard:"难"}[level];
+    const hints=[];
+    if(bars.join("").includes("["))hints.push("和声丰富→适合听辨训练");
+    if(occupancy>0.85)hints.push("节奏密集→重点慢练节奏型");
+    if(rests/(notesCount+rests)>0.25)hints.push("留白多→注意呼吸与分句");
+    if(maxLeap>=7)hints.push("含大跳→分手练习跳进");
+    // 渲染读数
+    const ro=document.getElementById("readout");
+    ro.innerHTML=[
+      ["拍号",(head.M||"4/4")],["速度",bpm+" BPM"],["调",key],
+      ["节奏密度",Math.round(occupancy*100)+"%"],["最大跳进",maxLeap+" 半音"],
+      ["音域",range+" 半音"],["难度",`<span class="diff ${level}">${lvText}</span>`]
+    ].map(([k,v])=>`<div class="feat"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+    // 自适应 drill
+    const dl=document.getElementById("drills");
+    const drillHTML=[
+      ["🎯 节奏焦点", densest.i?`第 ${densest.i} 小节密度最高，单独慢练 8 遍 @60%`:"未见明显密集小节"],
+      ["↗ 音程焦点", maxLeap>=5?`最大跳进 ${maxLeap} 半音，先分手把这两音连顺`:"跳进不大，可整体练"],
+      ["👂 听辨挑战", "盖住乐谱，凭记忆弹第 1 小节，再对照——这是留存率最高的练法"],
+      ["🎁 可变奖励", hints.length?hints[0]:"里程碑达成后解锁「律动模式」"]
+    ].map(([h,b])=>`<div class="drill"><div class="h">${h}</div><div class="b">${b}</div></div>`).join("");
+    dl.innerHTML=drillHTML;
+    document.getElementById("analyzeCard").style.display="block";
+    setupMastery(title);
+  }catch(e){console.warn("分析失败",e);document.getElementById("analyzeCard").style.display="block";document.getElementById("readout").innerHTML='<div class="feat"><div class="k">分析</div><div class="v">本曲暂不可用</div></div>'}
+}
+
+/* ⑤ 掌握里程碑（取代打卡） */
+const MS=["慢练达标：60% 速度连续 2 遍无错","原速达标：原速连续 2 遍无错","稳定：连续 3 天练习无错"];
+function setupMastery(title){
+  const key="ms_"+title;
+  const ml=document.getElementById("masteryList"); ml.innerHTML="";
+  MS.forEach((t,i)=>{
+    const li=document.createElement("div");li.className="ms";
+    let done=false;try{done=localStorage.getItem(key+"_"+i)==="1"}catch(e){}
+    if(done)li.classList.add("done");
+    li.innerHTML='<i class="box">✓</i><span></span>';li.querySelector("span").textContent=t;
+    li.onclick=()=>{li.classList.toggle("done");try{localStorage.setItem(key+"_"+i,li.classList.contains("done")?"1":"0")}catch(e){}updateBar(key)};
+    ml.appendChild(li);
+  });
+  document.getElementById("masteryCard").style.display="block";
+  updateBar(key);
+}
+function updateBar(key){let n=0;MS.forEach((_,i)=>{try{if(localStorage.getItem(key+"_"+i)==="1")n++}catch(e){}});document.getElementById("mbar").style.width=(n/MS.length*100)+"%"}
+
+/* ⑥ 陪练 + streak */
+function today(){return new Date().toISOString().slice(0,10)}
+function updateStreak(){let s=0;try{s=+localStorage.getItem("pc_streak")||0}catch(e){}document.getElementById("streak").textContent="🔥 连续 "+s+" 天"}
+document.getElementById("streak").onclick=()=>{let s=0;try{s=+localStorage.getItem("pc_streak")||0}catch(e){}if(localStorage.getItem("pc_last")!==today()){s++;localStorage.setItem("pc_streak",s);localStorage.setItem("pc_last",today())}updateStreak()};
+function showMsg(id){document.querySelectorAll(".coach .msg").forEach(m=>m.classList.remove("show"));document.getElementById(id).classList.add("show")}
+document.getElementById("did").onclick=()=>{document.getElementById("streak").click();showMsg("msgDid")};
+document.getElementById("not").onclick=()=>showMsg("msgNot");
+document.getElementById("stuck").onclick=()=>showMsg("msgStuck");
+updateStreak();
+
+document.getElementById("load").click();
+initSynth();
+</script>
+</body>
+</html>
